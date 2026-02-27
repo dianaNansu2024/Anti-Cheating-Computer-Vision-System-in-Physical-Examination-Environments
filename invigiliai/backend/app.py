@@ -24,14 +24,14 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
-# from modules.multi_person_tracker import MultiPersonTracker
-# from modules.gaze_tracker import GazeTracker
-# from modules.pose_estimator import PoseEstimator
+from modules.multi_person_tracker import MultiPersonTracker
+from modules.gaze_tracker import GazeTracker
+from modules.pose_estimator import PoseEstimator
 from modules.object_detector import ObjectDetector
-# from modules.mouth_monitor import MouthMonitor
-# from modules.anomaly_scorer import AnomalyScorer
-# from utils.report_generator import ReportGenerator
-# from utils.logger import ExamLogger
+from modules.mouth_monitor import MouthMonitor
+from modules.anomaly_scorer import AnomalyScorer
+from utils.report_generator import ReportGenerator
+from utils.logger import ExamLogger
 
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
@@ -78,7 +78,7 @@ pose_estimator = PoseEstimator()
 obj_detector   = ObjectDetector("invigilai_best.pt")
 mouth_monitor  = MouthMonitor()
 scorer         = AnomalyScorer()
-logger         = ExamLogger()
+logger         = ExamLogger() 
 report_gen     = ReportGenerator()
 
 # Shared frame buffer

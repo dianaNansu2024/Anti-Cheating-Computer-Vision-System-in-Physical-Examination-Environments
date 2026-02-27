@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InvigilAI — Unified</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Familjen+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #07090e;
+  --bg2:    #0c1018;
+  --bg3:    #111620;
+  --bd:     #1a2230;
+  --ink:    #d8e8f5;
+  --dim:    #4a6680;
+  --teal:   #00d4b0;
+  --amber:  #f0a030;
+  --red:    #ff3d5a;
+  --green:  #18e870;
+  --blue:   #38b0ff;
+  --mono:   'DM Mono', monospace;
+  --sans:   'Familjen Grotesk', sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;overflow:hidden}
+
+/* grain */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  opacity:.5}
+
+/* ── Layout ── */
+#app{display:grid;grid-template-rows:54px 1fr 46px;grid-template-columns:1fr 310px;height:100vh;gap:1px;background:var(--bd)}
+
+/* ── Header ── */
+#hdr{grid-column:1/3;background:var(--bg2);display:flex;align-items:center;padding:0 1.2rem;gap:1rem;border-bottom:1px solid var(--bd)}
+.logo{display:flex;align-items:center;gap:.7rem}
+.logo-eye{width:32px;height:32px;border:1.5px solid var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;position:relative;flex-shrink:0}
+.logo-eye::after{content:'';position:absolute;inset:-5px;border-radius:50%;border:1px solid rgba(0,212,176,.2);animation:spin 4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.logo-name{font-weight:700;font-size:1.05rem;letter-spacing:.08em;color:var(--teal)}
+.logo-sub{font-family:var(--mono);font-size:.58rem;color:var(--dim);margin-top:1px}
+.hdiv{width:1px;height:24px;background:var(--bd);flex-shrink:0}
+.h-spacer{flex:1}
+#h-clock{font-family:var(--mono);font-size:.78rem;color:var(--dim)}
+
+/* Mode toggle */
+.mode-toggle{display:flex;background:var(--bg);border:1px solid var(--bd);border-radius:4px;overflow:hidden;flex-shrink:0}
+.mode-btn{padding:.3rem 1rem;font-family:var(--sans);font-weight:600;font-size:.72rem;letter-spacing:.08em;cursor:pointer;border:none;background:transparent;color:var(--dim);transition:all .2s;white-space:nowrap}
+.mode-btn.active-live{background:rgba(56,176,255,.12);color:var(--blue)}
+.mode-btn.active-video{background:rgba(0,212,176,.12);color:var(--teal)}
+.mode-btn:hover:not(.active-live):not(.active-video){color:var(--ink);background:var(--bg3)}
+
+/* Action buttons */
+.btn{padding:.32rem .9rem;border:1px solid transparent;border-radius:3px;font-family:var(--sans);font-weight:600;font-size:.72rem;letter-spacing:.08em;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+.btn-scan{background:var(--bg3);border-color:var(--bd);color:var(--dim)}
+.btn-scan:hover:not(:disabled){border-color:var(--teal);color:var(--teal)}
+.btn-go{background:rgba(24,232,112,.1);border-color:var(--green);color:var(--green)}
+.btn-go:hover:not(:disabled){background:rgba(24,232,112,.2)}
+.btn-pause{background:rgba(240,160,48,.1);border-color:var(--amber);color:var(--amber)}
+.btn-pause:hover:not(:disabled){background:rgba(240,160,48,.2)}
+.btn-stop{background:rgba(255,61,90,.1);border-color:var(--red);color:var(--red)}
+.btn-stop:hover:not(:disabled){background:rgba(255,61,90,.2)}
+.btn-report{background:var(--bg3);border-color:var(--blue);color:var(--blue)}
+.btn-report:hover:not(:disabled){background:rgba(56,176,255,.1)}
+.btn-upload{background:rgba(0,212,176,.1);border-color:var(--teal);color:var(--teal)}
+.btn-upload:hover:not(:disabled){background:rgba(0,212,176,.2)}
+#file-input{display:none}
+
+/* Camera select */
+#cam-select{background:var(--bg3);border:1px solid var(--bd);color:var(--ink);font-family:var(--mono);font-size:.72rem;padding:.28rem .55rem;border-radius:3px;cursor:pointer}
+
+/* Speed */
+.spd{display:flex;align-items:center;gap:.35rem;font-family:var(--mono);font-size:.68rem;color:var(--dim)}
+.spd-btn{width:20px;height:20px;border:1px solid var(--bd);border-radius:2px;background:var(--bg3);color:var(--ink);cursor:pointer;font-size:.7rem;display:flex;align-items:center;justify-content:center}
+.spd-btn:hover{border-color:var(--teal);color:var(--teal)}
+#spd-val{color:var(--teal);font-weight:500;min-width:28px;text-align:center}
+
+/* ── Video area ── */
+#video-col{display:flex;flex-direction:column;background:#000;overflow:hidden}
+#video-area{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#feed{width:100%;height:100%;object-fit:contain;display:block}
+
+/* Mode overlay (shown before mode is selected) */
+#mode-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;background:var(--bg)}
+#mode-overlay.hidden{display:none}
+.mode-cards{display:flex;gap:1.5rem}
+.mode-card{width:200px;padding:1.8rem 1.2rem;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;cursor:pointer;text-align:center;transition:all .2s}
+.mode-card:hover{transform:translateY(-3px)}
+.mode-card.live-card:hover{border-color:var(--blue);background:rgba(56,176,255,.06)}
+.mode-card.video-card:hover{border-color:var(--teal);background:rgba(0,212,176,.06)}
+.mc-icon{font-size:2.5rem;margin-bottom:.8rem}
+.mc-title{font-weight:700;font-size:1rem;margin-bottom:.4rem}
+.mc-sub{font-family:var(--mono);font-size:.65rem;color:var(--dim);line-height:1.5}
+.overlay-title{font-size:1.4rem;font-weight:700;color:var(--teal)}
+.overlay-sub{font-family:var(--mono);font-size:.7rem;color:var(--dim)}
+
+/* Drop overlay (video mode) */
+#drop-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8rem;background:var(--bg)}
+#drop-overlay.hidden{display:none}
+#drop-overlay.drag-over{background:rgba(0,212,176,.05);border:2px dashed var(--teal)}
+.drop-icon{font-size:3rem;line-height:1}
+.drop-title{font-size:1.2rem;font-weight:700;color:var(--teal)}
+.drop-sub{font-family:var(--mono);font-size:.65rem;color:var(--dim)}
+
+/* Status badge */
+#status-badge{position:absolute;top:10px;right:12px;font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;padding:3px 12px;border-radius:20px;pointer-events:none}
+.sb-idle{background:rgba(74,102,128,.15);color:var(--dim);border:1px solid #1a2a3a}
+.sb-ready{background:rgba(0,212,176,.1);color:var(--teal);border:1px solid rgba(0,212,176,.3)}
+.sb-active{background:rgba(24,232,112,.1);color:var(--green);border:1px solid rgba(24,232,112,.4);animation:blink .9s step-end infinite}
+.sb-paused{background:rgba(240,160,48,.1);color:var(--amber);border:1px solid rgba(240,160,48,.4)}
+.sb-done{background:rgba(56,176,255,.1);color:var(--blue);border:1px solid rgba(56,176,255,.4)}
+@keyframes blink{50%{opacity:.3}}
+
+/* Mode tag */
+#mode-tag{position:absolute;top:10px;left:12px;font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;padding:3px 10px;border-radius:3px;pointer-events:none;display:none}
+.mt-live{background:rgba(56,176,255,.12);color:var(--blue);border:1px solid rgba(56,176,255,.3)}
+.mt-video{background:rgba(0,212,176,.1);color:var(--teal);border:1px solid rgba(0,212,176,.25)}
+
+/* Bracket corners */
+.bracket{position:absolute;width:18px;height:18px;border-color:rgba(0,212,176,.4);border-style:solid;pointer-events:none}
+.bracket.tl{top:8px;left:8px;border-width:2px 0 0 2px}
+.bracket.tr{top:8px;right:8px;border-width:2px 2px 0 0}
+.bracket.bl{bottom:8px;left:8px;border-width:0 0 2px 2px}
+.bracket.br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+
+/* Scrubber (video mode only) */
+#scrubber{padding:.5rem 1rem .4rem;background:var(--bg2);border-top:1px solid var(--bd);flex-shrink:0;display:none}
+#scrubber.visible{display:block}
+.scr-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.62rem;margin-bottom:.3rem}
+#scr-cur{color:var(--teal)}
+#scr-pct{color:var(--amber)}
+#scr-dur{color:var(--dim)}
+#scr-track{position:relative;height:7px;background:var(--bg3);border-radius:3px;cursor:pointer;overflow:visible}
+#scr-fill{height:100%;background:var(--teal);border-radius:3px;width:0%;transition:width .3s linear;pointer-events:none}
+#scr-thumb{position:absolute;top:50%;width:13px;height:13px;background:var(--teal);border-radius:50%;transform:translate(-50%,-50%);left:0%;pointer-events:none;transition:left .3s linear;box-shadow:0 0 8px rgba(0,212,176,.5)}
+.inc-marker{position:absolute;top:-2px;width:2px;height:11px;border-radius:1px;transform:translateX(-50%);pointer-events:none}
+.inc-marker.high{background:var(--red)}
+.inc-marker.medium{background:var(--amber)}
+
+/* ── Right panel ── */
+#rp{background:var(--bg2);display:flex;flex-direction:column;overflow:hidden}
+.ptitle{padding:.5rem .9rem;border-bottom:1px solid var(--bd);font-family:var(--mono);font-size:.6rem;letter-spacing:.13em;color:var(--dim);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+
+/* Model panel */
+#model-panel{padding:.6rem .9rem .4rem;flex-shrink:0}
+.mp-box{background:var(--bg);border:1px solid var(--bd);border-radius:4px;padding:.55rem .7rem}
+.mp-lbl{font-family:var(--mono);font-size:.58rem;color:var(--dim);letter-spacing:.1em;margin-bottom:.3rem}
+.mp-file{font-family:var(--mono);font-size:.72rem;color:var(--teal);font-weight:500}
+.mp-src{font-family:var(--mono);font-size:.62rem;color:var(--dim);margin-top:.2rem}
+.mp-classes{display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.4rem}
+.cls-chip{font-family:var(--mono);font-size:.56rem;padding:1px 7px;border-radius:10px;border:1px solid var(--bd);color:var(--teal);background:rgba(0,212,176,.06)}
+
+/* Stats */
+#stats{padding:.6rem .9rem .3rem;display:grid;grid-template-columns:1fr 1fr;gap:.4rem;flex-shrink:0}
+.sc{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:.45rem .65rem}
+.sc .n{font-family:var(--mono);font-size:1.15rem;font-weight:500;line-height:1}
+.sc .l{font-size:.58rem;color:var(--dim);margin-top:2px;letter-spacing:.06em}
+
+/* Detector grid */
+#det{padding:0 .9rem .5rem;flex-shrink:0}
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:.3rem}
+.dc{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:.32rem .5rem;display:flex;align-items:center;gap:.4rem;font-size:.68rem;transition:all .2s}
+.dc.warn{border-color:var(--amber);background:rgba(240,160,48,.05)}
+.dc.fire{border-color:var(--red);background:rgba(255,61,90,.06)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--bd);flex-shrink:0;transition:background .2s}
+.warn .dot{background:var(--amber);box-shadow:0 0 4px var(--amber)}
+.fire .dot{background:var(--red);box-shadow:0 0 4px var(--red)}
+
+/* Seat bars */
+#seats{padding:0 .9rem .4rem;flex-shrink:0;max-height:100px;overflow-y:auto}
+.sr{display:flex;align-items:center;gap:.5rem;padding:.26rem .5rem;background:var(--bg);border:1px solid var(--bd);border-radius:3px;margin-bottom:.22rem;font-family:var(--mono);font-size:.65rem}
+.sr-bar-w{flex:1;height:3px;background:var(--bd);border-radius:2px;overflow:hidden}
+.sr-bar{height:100%;border-radius:2px;transition:width .4s,background .4s}
+
+/* Alert log */
+#log{flex:1;overflow-y:auto;padding:.35rem}
+.ie{padding:.42rem .65rem;margin-bottom:.22rem;border-radius:3px;border-left:3px solid var(--bd);background:var(--bg);animation:slideIn .18s ease-out;cursor:pointer;transition:background .15s}
+.ie:hover{background:var(--bg3)}
+.ie.high{border-color:var(--red)}
+.ie.medium{border-color:var(--amber)}
+.ie.low{border-color:var(--dim)}
+@keyframes slideIn{from{opacity:0;transform:translateX(5px)}to{opacity:1;transform:none}}
+.ie-meta{font-family:var(--mono);font-size:.6rem;color:var(--dim);margin-bottom:1px}
+.ie-type{font-weight:700;font-size:.72rem;letter-spacing:.03em}
+.ie-detail{color:var(--dim);font-size:.68rem;margin-top:1px}
+.empty-log{text-align:center;padding:2rem;font-family:var(--mono);font-size:.68rem;color:var(--dim);line-height:2}
+
+/* ── Footer ── */
+#footer{grid-column:1/3;background:var(--bg2);border-top:1px solid var(--bd);display:flex;align-items:stretch}
+.fc{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:.3rem;border-right:1px solid var(--bd)}
+.fc:last-child{border-right:none}
+.fc-n{font-family:var(--mono);font-size:.95rem;font-weight:500;color:var(--teal);line-height:1}
+.fc-l{font-size:.57rem;color:var(--dim);letter-spacing:.07em;margin-top:2px}
+
+/* Upload progress */
+#upload-prog{display:none;position:fixed;inset:0;z-index:1000;background:rgba(7,9,14,.92);align-items:center;justify-content:center;flex-direction:column;gap:1.2rem}
+#upload-prog.visible{display:flex}
+.up-title{font-size:1rem;font-weight:600;color:var(--teal)}
+.up-bar-w{width:280px;height:3px;background:var(--bd);border-radius:2px;overflow:hidden}
+.up-bar{height:100%;background:var(--teal);border-radius:2px;width:0%;transition:width .3s}
+.up-sub{font-family:var(--mono);font-size:.65rem;color:var(--dim)}
+
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div id="upload-prog">
+  <div class="up-title">📤 Uploading video…</div>
+  <div class="up-bar-w"><div class="up-bar" id="up-bar"></div></div>
+  <div class="up-sub" id="up-sub">Please wait</div>
+</div>
+
+<div id="app">
+
+  <!-- ── Header ── -->
+  <header id="hdr">
+    <div class="logo">
+      <div class="logo-eye">👁</div>
+      <div>
+        <div class="logo-name">INVIGILAI</div>
+        <div class="logo-sub">UNIFIED · CUSTOM MODEL</div>
+      </div>
+    </div>
+    <div class="hdiv"></div>
+
+    <!-- Mode toggle -->
+    <div class="mode-toggle">
+      <button class="mode-btn" id="mb-live"  onclick="switchMode('live')">📷 LIVE CAMERA</button>
+      <button class="mode-btn" id="mb-video" onclick="switchMode('video')">🎬 VIDEO FILE</button>
+    </div>
+
+    <div class="hdiv"></div>
+
+    <!-- Live controls (shown in live mode) -->
+    <div id="live-controls" style="display:none;align-items:center;gap:.5rem">
+      <select id="cam-select"><option value="0">Camera 0</option></select>
+      <button class="btn btn-scan" onclick="scanCameras()">🔍</button>
+      <button class="btn btn-go"   id="btn-live-start" disabled onclick="liveStart()">▶ START</button>
+      <button class="btn btn-stop" id="btn-live-stop"  disabled onclick="liveStop()">■ STOP</button>
+    </div>
+
+    <!-- Video controls (shown in video mode) -->
+    <div id="video-controls" style="display:none;align-items:center;gap:.5rem">
+      <div class="spd">
+        <button class="spd-btn" onclick="changeSpeed(-0.5)">−</button>
+        <span id="spd-val">1×</span>
+        <button class="spd-btn" onclick="changeSpeed(+0.5)">+</button>
+        <span>SPD</span>
+      </div>
+      <input type="file" id="file-input" accept="video/*" onchange="handleFile(this)">
+      <button class="btn btn-upload" onclick="document.getElementById('file-input').click()">📂 UPLOAD</button>
+      <button class="btn btn-go"     id="btn-analyze" disabled onclick="startAnalysis()">▶ ANALYZE</button>
+      <button class="btn btn-pause"  id="btn-pause"   disabled onclick="pauseAnalysis()">⏸ PAUSE</button>
+    </div>
+
+    <div class="h-spacer"></div>
+    <div id="h-clock"></div>
+    <button class="btn btn-report" id="btn-report" disabled onclick="openReport()">📄 REPORT</button>
+  </header>
+
+  <!-- ── Video column ── -->
+  <div id="video-col">
+    <div id="video-area">
+
+      <!-- Initial mode selection overlay -->
+      <div id="mode-overlay">
+        <div class="overlay-title">Choose Your Input Source</div>
+        <div class="overlay-sub">You can switch modes at any time</div>
+        <div class="mode-cards">
+          <div class="mode-card live-card" onclick="switchMode('live')">
+            <div class="mc-icon">📷</div>
+            <div class="mc-title" style="color:var(--blue)">Live Camera</div>
+            <div class="mc-sub">Real-time monitoring<br>from a connected camera</div>
+          </div>
+          <div class="mode-card video-card" onclick="switchMode('video')">
+            <div class="mc-icon">🎬</div>
+            <div class="mc-title" style="color:var(--teal)">Video File</div>
+            <div class="mc-sub">Upload a pre-recorded<br>exam video for analysis</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video drop zone (video mode) -->
+      <div id="drop-overlay" class="hidden">
+        <div class="drop-icon">🎥</div>
+        <div class="drop-title">Drop Video Here</div>
+        <div class="drop-sub">or click 📂 UPLOAD · MP4 AVI MOV MKV WEBM</div>
+      </div>
+
+      <!-- Stream -->
+      <img id="feed" src="" alt="" style="display:none">
+
+      <!-- Overlays -->
+      <div id="mode-tag"></div>
+      <div id="status-badge" class="sb-idle">● IDLE</div>
+      <div class="bracket tl"></div>
+      <div class="bracket tr"></div>
+      <div class="bracket bl"></div>
+      <div class="bracket br"></div>
+    </div>
+
+    <!-- Scrubber (video mode) -->
+    <div id="scrubber">
+      <div class="scr-row">
+        <span id="scr-cur">00:00:00</span>
+        <span id="scr-pct">0.0%</span>
+        <span id="scr-dur">00:00:00</span>
+      </div>
+      <div id="scr-track" onclick="scrubTo(event)">
+        <div id="scr-fill"></div>
+        <div id="scr-thumb"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right panel ── -->
+  <div id="rp">
+    <div class="ptitle">
+      <span>DASHBOARD</span>
+      <span id="persons-cnt" style="color:var(--teal)">—</span>
+    </div>
+
+    <!-- Model info -->
+    <div id="model-panel">
+      <div class="mp-box">
+        <div class="mp-lbl">LOADED MODEL</div>
+        <div class="mp-file">invigilai_best.pt</div>
+        <div class="mp-src" id="m-src">source: loading…</div>
+        <div class="mp-classes" id="m-classes"></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div id="stats">
+      <div class="sc"><div class="n" id="s-total" style="color:var(--teal)">0</div><div class="l">INCIDENTS</div></div>
+      <div class="sc"><div class="n" id="s-high"  style="color:var(--red)">0</div><div class="l">HIGH</div></div>
+      <div class="sc"><div class="n" id="s-med"   style="color:var(--amber)">0</div><div class="l">MEDIUM</div></div>
+      <div class="sc"><div class="n" id="s-seats" style="color:var(--blue)">0</div><div class="l">SEATS</div></div>
+    </div>
+
+    <!-- Detectors -->
+    <div id="det">
+      <div class="dg">
+        <div class="dc" id="dc-gaze">  <div class="dot"></div>GAZE</div>
+        <div class="dc" id="dc-pose">  <div class="dot"></div>POSTURE</div>
+        <div class="dc" id="dc-obj">   <div class="dot"></div>OBJECTS</div>
+        <div class="dc" id="dc-mouth"> <div class="dot"></div>MOUTH</div>
+        <div class="dc" id="dc-multi"> <div class="dot"></div>MULTI-PERSON</div>
+        <div class="dc" id="dc-vacant"><div class="dot"></div>VACANT</div>
+      </div>
+    </div>
+
+    <!-- Seat risk bars -->
+    <div class="ptitle" style="padding:.35rem .9rem"><span>SEAT RISK</span></div>
+    <div id="seats"><div style="text-align:center;padding:.6rem;font-family:var(--mono);font-size:.63rem;color:var(--dim)">No persons tracked</div></div>
+
+    <!-- Alert log -->
+    <div class="ptitle">
+      <span>INCIDENT LOG</span>
+      <span id="log-cnt" style="color:var(--red);font-family:var(--mono)">0</span>
+    </div>
+    <div id="log">
+      <div class="empty-log">Select a mode to begin<br><span style="opacity:.5">Incidents appear here</span></div>
+    </div>
+  </div>
+
+  <!-- ── Footer ── -->
+  <footer id="footer">
+    <div class="fc"><div class="fc-n" id="fc-mode"   style="color:var(--dim)">—</div><div class="fc-l">MODE</div></div>
+    <div class="fc"><div class="fc-n" id="fc-frames">0</div><div class="fc-l">FRAMES</div></div>
+    <div class="fc"><div class="fc-n" id="fc-total"  style="color:var(--teal)">0</div><div class="fc-l">INCIDENTS</div></div>
+    <div class="fc"><div class="fc-n" id="fc-high"   style="color:var(--red)">0</div><div class="fc-l">HIGH</div></div>
+    <div class="fc"><div class="fc-n" id="fc-med"    style="color:var(--amber)">0</div><div class="fc-l">MEDIUM</div></div>
+    <div class="fc"><div class="fc-n" id="fc-persons" style="color:var(--blue)">0</div><div class="fc-l">PERSONS</div></div>
+    <div class="fc"><div class="fc-n" id="fc-status" style="color:var(--dim)">IDLE</div><div class="fc-l">STATUS</div></div>
+  </footer>
+</div>
+
+<script>
+// ── State ───────────────────────────────────────────────────────────────────
+let currentMode  = 'none';
+let speed        = 1.0;
+let totalFrames  = 0;
+let durationFmt  = '00:00:00';
+let pollRef      = null;
+let prevCount    = 0;
+let reportReady  = false;
+
+// ── Clock ───────────────────────────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById('h-clock').textContent =
+    new Date().toLocaleTimeString('en-GB', {hour12:false});
+}, 1000);
+
+// ── Model info ──────────────────────────────────────────────────────────────
+async function loadModelInfo() {
+  try {
+    const d = await (await fetch('/api/model_info')).json();
+    document.getElementById('m-src').textContent =
+      `source: ${d.source||'—'}  ·  ${d.n_classes||0} class(es)  ·  conf ≥${((d.threshold||0.4)*100).toFixed(0)}%`;
+    const el = document.getElementById('m-classes');
+    el.innerHTML = '';
+    Object.values(d.classes||{}).forEach(name => {
+      const c = document.createElement('span');
+      c.className = 'cls-chip';
+      c.textContent = name;
+      el.appendChild(c);
+    });
+  } catch(e) {}
+}
+loadModelInfo();
+
+// ── Mode switching ──────────────────────────────────────────────────────────
+async function switchMode(mode) {
+  if (pollRef) clearInterval(pollRef);
+
+  // Update header buttons
+  document.getElementById('mb-live').className  = 'mode-btn' + (mode==='live'  ? ' active-live'  : '');
+  document.getElementById('mb-video').className = 'mode-btn' + (mode==='video' ? ' active-video' : '');
+  document.getElementById('live-controls').style.display  = mode==='live'  ? 'flex' : 'none';
+  document.getElementById('video-controls').style.display = mode==='video' ? 'flex' : 'none';
+
+  // Update mode tag
+  const mt = document.getElementById('mode-tag');
+  mt.style.display = 'block';
+  if (mode === 'live') {
+    mt.className = 'mt-live';  mt.textContent = '📷 LIVE';
+  } else {
+    mt.className = 'mt-video'; mt.textContent = '🎬 VIDEO';
+  }
+
+  // Scrubber visibility
+  document.getElementById('scrubber').className = mode==='video' ? 'visible' : '';
+
+  // Reset UI
+  setStatus('idle', '● IDLE');
+  resetUI();
+  prevCount   = 0;
+  reportReady = false;
+  document.getElementById('btn-report').disabled = true;
+  document.getElementById('fc-mode').textContent = mode.toUpperCase();
+
+  // Call backend
+  try {
+    const body = {mode};
+    if (mode === 'live') {
+      body.camera_index = parseInt(document.getElementById('cam-select').value||'0');
+    }
+    const r = await fetch('/api/set_mode', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (d.error) { alert(d.error); return; }
+    currentMode = mode;
+
+    // Hide overlays, show feed
+    document.getElementById('mode-overlay').classList.add('hidden');
+    document.getElementById('feed').src = '/stream';
+    document.getElementById('feed').style.display = 'block';
+
+    if (mode === 'live') {
+      document.getElementById('drop-overlay').classList.add('hidden');
+      document.getElementById('btn-live-start').disabled = false;
+      document.getElementById('btn-live-stop').disabled  = true;
+      setStatus('ready', '● READY');
+      pollRef = setInterval(poll, 1000);
+    } else {
+      // Show drop zone
+      document.getElementById('drop-overlay').classList.remove('hidden');
+      document.getElementById('btn-analyze').disabled = true;
+      document.getElementById('btn-pause').disabled   = true;
+      setStatus('idle', '● DROP VIDEO');
+    }
+  } catch(e) {
+    alert('Cannot reach InvigilAI backend.\n\nRun: python backend/app.py');
+  }
+}
+
+// ── Camera scan ─────────────────────────────────────────────────────────────
+async function scanCameras() {
+  try {
+    const d   = await (await fetch('/api/cameras')).json();
+    const sel = document.getElementById('cam-select');
+    sel.innerHTML = '';
+    (d.cameras||[0]).forEach(i => {
+      const o = document.createElement('option');
+      o.value = i; o.textContent = `Camera ${i}${i===0?' (Default)':''}`;
+      sel.appendChild(o);
+    });
+  } catch(e) {}
+}
+scanCameras();
+
+// ── Live controls ───────────────────────────────────────────────────────────
+async function liveStart() {
+  const r = await fetch('/api/live/start', {method:'POST'});
+  const d = await r.json();
+  if (d.error) { alert(d.error); return; }
+  document.getElementById('btn-live-start').disabled = true;
+  document.getElementById('btn-live-stop').disabled  = false;
+  setStatus('active', '● RECORDING');
+  document.getElementById('log').innerHTML =
+    '<div class="empty-log">Monitoring…<br><span style="opacity:.5">No incidents yet ✓</span></div>';
+  pollRef = setInterval(poll, 900);
+}
+
+async function liveStop() {
+  clearInterval(pollRef);
+  const r = await fetch('/api/live/stop', {method:'POST'});
+  document.getElementById('btn-live-start').disabled = false;
+  document.getElementById('btn-live-stop').disabled  = true;
+  document.getElementById('btn-report').disabled     = false;
+  setStatus('done', '✓ DONE');
+  reportReady = true;
+}
+
+// ── Video upload ─────────────────────────────────────────────────────────────
+const dropArea = document.getElementById('video-area');
+dropArea.addEventListener('dragover', e => {
+  e.preventDefault();
+  if (currentMode==='video') document.getElementById('drop-overlay').classList.add('drag-over');
+});
+dropArea.addEventListener('dragleave', () => {
+  document.getElementById('drop-overlay').classList.remove('drag-over');
+});
+dropArea.addEventListener('drop', e => {
+  e.preventDefault();
+  document.getElementById('drop-overlay').classList.remove('drag-over');
+  if (currentMode==='video' && e.dataTransfer.files.length)
+    uploadFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(input) {
+  if (input.files.length) uploadFile(input.files[0]);
+}
+
+function uploadFile(file) {
+  if (!/\.(mp4|avi|mov|mkv|webm|m4v)$/i.test(file.name)) {
+    alert('Unsupported format.\nUse: MP4 AVI MOV MKV WEBM'); return;
+  }
+  const prog = document.getElementById('upload-prog');
+  prog.classList.add('visible');
+  document.getElementById('up-sub').textContent = file.name;
+
+  const fd = new FormData(); fd.append('video', file);
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/video/upload');
+
+  xhr.upload.addEventListener('progress', e => {
+    if (e.lengthComputable) {
+      const pct = (e.loaded/e.total*100).toFixed(0);
+      document.getElementById('up-bar').style.width = pct + '%';
+      document.getElementById('up-sub').textContent = `${file.name} — ${pct}%`;
+    }
+  });
+
+  xhr.addEventListener('load', () => {
+    prog.classList.remove('visible');
+    if (xhr.status === 200) {
+      const d = JSON.parse(xhr.responseText);
+      onVideoReady(d);
+    } else {
+      try { alert('Upload error: ' + JSON.parse(xhr.responseText).error); }
+      catch { alert('Upload failed'); }
+    }
+  });
+  xhr.addEventListener('error', () => {
+    prog.classList.remove('visible');
+    alert('Upload failed — is the backend running?');
+  });
+  xhr.send(fd);
+}
+
+function onVideoReady(d) {
+  totalFrames = d.frames;
+  durationFmt = d.duration_fmt;
+  document.getElementById('drop-overlay').classList.add('hidden');
+  document.getElementById('scr-dur').textContent = d.duration_fmt;
+  setStatus('ready', '● READY');
+  document.getElementById('btn-analyze').disabled = false;
+  pollRef = setInterval(poll, 900);
+}
+
+async function startAnalysis() {
+  const r = await fetch('/api/video/analyze', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({speed})
+  });
+  const d = await r.json();
+  if (d.error) { alert(d.error); return; }
+  document.getElementById('btn-analyze').disabled = true;
+  document.getElementById('btn-pause').disabled   = false;
+  setStatus('active', '● ANALYZING');
+  document.getElementById('log').innerHTML =
+    '<div class="empty-log">Analyzing…<br><span style="opacity:.5">No incidents yet ✓</span></div>';
+}
+
+async function pauseAnalysis() {
+  const r = await fetch('/api/video/pause', {method:'POST'});
+  const d = await r.json();
+  if (d.paused) {
+    setStatus('paused', '⏸ PAUSED');
+    document.getElementById('btn-pause').textContent = '▶ RESUME';
+  } else {
+    setStatus('active', '● ANALYZING');
+    document.getElementById('btn-pause').textContent = '⏸ PAUSE';
+  }
+}
+
+function changeSpeed(delta) {
+  speed = Math.max(0.25, Math.min(Math.round((speed+delta)*4)/4, 8));
+  document.getElementById('spd-val').textContent = speed + '×';
+  fetch('/api/video/speed', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({speed})
+  });
+}
+
+function scrubTo(e) {
+  if (!totalFrames) return;
+  const track = document.getElementById('scr-track');
+  const pct   = Math.max(0, Math.min((e.clientX - track.getBoundingClientRect().left) / track.offsetWidth, 1));
+  fetch('/api/video/seek', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({frame: Math.floor(pct*totalFrames)})
+  });
+}
+
+// ── Polling ──────────────────────────────────────────────────────────────────
+async function poll() {
+  try {
+    const d = await (await fetch('/api/status')).json();
+    const total  = d.alert_count || 0;
+    const high   = d.stats?.high   || 0;
+    const med    = d.stats?.medium || 0;
+    const persons = d.persons || {};
+    const seats  = Object.keys(persons).length;
+
+    // Stats
+    document.getElementById('s-total').textContent  = total;
+    document.getElementById('s-high').textContent   = high;
+    document.getElementById('s-med').textContent    = med;
+    document.getElementById('s-seats').textContent  = seats;
+    document.getElementById('log-cnt').textContent  = total;
+    document.getElementById('persons-cnt').textContent = `${seats} SEAT(S)`;
+
+    // Footer
+    document.getElementById('fc-frames').textContent  = d.frame_count  || 0;
+    document.getElementById('fc-total').textContent   = total;
+    document.getElementById('fc-high').textContent    = high;
+    document.getElementById('fc-med').textContent     = med;
+    document.getElementById('fc-persons').textContent = seats;
+    document.getElementById('fc-status').textContent  = (d.status||'idle').toUpperCase();
+
+    // Scrubber (video mode)
+    if (currentMode === 'video') {
+      const pct = d.progress_pct || 0;
+      document.getElementById('scr-fill').style.width = pct + '%';
+      document.getElementById('scr-thumb').style.left = pct + '%';
+      document.getElementById('scr-pct').textContent  = pct.toFixed(1) + '%';
+      document.getElementById('scr-cur').textContent  = frameToTime(d.current_frame, d.fps);
+    }
+
+    // Seats
+    renderSeats(persons);
+
+    // Alerts
+    if (total !== prevCount) {
+      prevCount = total;
+      renderAlerts(d.recent_alerts || []);
+      updateDets(d.recent_alerts || []);
+      updateMarkers(d.recent_alerts || [], d.total_frames || totalFrames);
+    }
+
+    // Done
+    if (d.status === 'done' && !reportReady) {
+      reportReady = true;
+      clearInterval(pollRef);
+      setStatus('done', `✓ DONE — ${total} incidents`);
+      document.getElementById('btn-analyze').disabled = false;
+      document.getElementById('btn-pause').disabled   = true;
+      document.getElementById('btn-report').disabled  = false;
+      if (currentMode === 'video') {
+        document.getElementById('scr-fill').style.width = '100%';
+        document.getElementById('scr-thumb').style.left = '100%';
+      }
+    }
+  } catch(e) {}
+}
+
+// ── Render helpers ───────────────────────────────────────────────────────────
+function renderSeats(persons) {
+  const el = document.getElementById('seats');
+  const entries = Object.entries(persons);
+  if (!entries.length) return;
+  el.innerHTML = entries.map(([id, info]) => {
+    const r = info.risk || 0;
+    const c = r>60 ? 'var(--red)' : r>30 ? 'var(--amber)' : 'var(--green)';
+    return `<div class="sr">
+      <span style="color:var(--dim)">S-${id}</span>
+      <div class="sr-bar-w"><div class="sr-bar" style="width:${r}%;background:${c}"></div></div>
+      <span style="color:${c};font-size:.62rem">${r.toFixed(0)}%</span>
+    </div>`;
+  }).join('');
+}
+
+function renderAlerts(alerts) {
+  const el = document.getElementById('log');
+  if (!alerts.length) {
+    el.innerHTML = '<div class="empty-log">Monitoring…<br><span style="opacity:.5">No incidents yet ✓</span></div>';
+    return;
+  }
+  el.innerHTML = alerts.slice(0,50).map(a => {
+    const sv = a.severity || 'medium';
+    const sc = sv==='high' ? 'var(--red)' : sv==='medium' ? 'var(--amber)' : 'var(--dim)';
+    const ts = a.video_time || (a.timestamp||'').slice(11,19);
+    const seat = a.seat !== undefined ? ` · SEAT ${a.seat}` : '';
+    return `<div class="ie ${sv}" onclick="seekToAlert(${a.frame||0})">
+      <div class="ie-meta">${ts}${seat} · <span style="color:${sc}">${sv.toUpperCase()}</span></div>
+      <div class="ie-type">${a.type||''}</div>
+      <div class="ie-detail">${a.detail||''}</div>
+    </div>`;
+  }).join('');
+}
+
+function seekToAlert(frame) {
+  if (currentMode === 'video' && frame) {
+    fetch('/api/video/seek', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({frame})
+    });
+  }
+}
+
+function updateDets(alerts) {
+  const types = new Set(alerts.map(a => a.type));
+  setDet('dc-gaze',   types.has('GAZE_DEVIATION'),    'warn');
+  setDet('dc-pose',   types.has('SUSPICIOUS_POSTURE'), 'warn');
+  setDet('dc-obj',    types.has('UNAUTHORIZED_OBJECT'),'fire');
+  setDet('dc-mouth',  types.has('MOUTH_MOVEMENT'),     'warn');
+  setDet('dc-multi',  types.has('MULTIPLE_PERSONS'),   'fire');
+  setDet('dc-vacant', types.has('SEAT_VACANT'),        'warn');
+}
+function setDet(id, on, cls) {
+  const el = document.getElementById(id);
+  if (el) el.className = 'dc' + (on ? ` ${cls}` : '');
+}
+
+function updateMarkers(alerts, total) {
+  if (!total || currentMode !== 'video') return;
+  const track = document.getElementById('scr-track');
+  track.querySelectorAll('.inc-marker').forEach(m => m.remove());
+  alerts.slice(0,200).forEach(a => {
+    if (!a.frame) return;
+    const pct = (a.frame / total) * 100;
+    const m = document.createElement('div');
+    m.className = `inc-marker ${a.severity||'medium'}`;
+    m.style.left = pct + '%';
+    m.title = `${a.video_time||''} — ${a.type}`;
+    track.appendChild(m);
+  });
+}
+
+function resetUI() {
+  ['s-total','s-high','s-med','s-seats','log-cnt',
+   'fc-frames','fc-total','fc-high','fc-med','fc-persons'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '0';
+  });
+  document.getElementById('persons-cnt').textContent = '—';
+  document.getElementById('log').innerHTML = '<div class="empty-log">Select a mode<br><span style="opacity:.5">Incidents appear here</span></div>';
+  document.getElementById('seats').innerHTML = '<div style="text-align:center;padding:.6rem;font-family:var(--mono);font-size:.63rem;color:var(--dim)">No persons tracked</div>';
+  document.getElementById('scr-fill').style.width  = '0%';
+  document.getElementById('scr-thumb').style.left  = '0%';
+  document.getElementById('scr-pct').textContent   = '0.0%';
+  document.getElementById('scr-cur').textContent   = '00:00:00';
+  document.getElementById('scr-dur').textContent   = '00:00:00';
+  document.getElementById('scr-track').querySelectorAll('.inc-marker').forEach(m=>m.remove());
+  ['dc-gaze','dc-pose','dc-obj','dc-mouth','dc-multi','dc-vacant'].forEach(id => setDet(id,false,''));
+  document.getElementById('btn-pause').textContent = '⏸ PAUSE';
+}
+
+function setStatus(mode, text) {
+  const el = document.getElementById('status-badge');
+  el.className = `sb-${mode}`;
+  el.textContent = text;
+  const sc = document.getElementById('fc-status');
+  sc.textContent = mode.toUpperCase();
+  sc.style.color = {active:'var(--green)',done:'var(--blue)',paused:'var(--amber)'}[mode] || 'var(--dim)';
+}
+
+function frameToTime(frame, fps) {
+  if (!fps||!frame) return '00:00:00';
+  const t = frame/fps;
+  return [Math.floor(t/3600),Math.floor((t%3600)/60),Math.floor(t%60)]
+    .map(n=>String(n).padStart(2,'0')).join(':');
+}
+
+function openReport() { window.open('/reports','_blank'); }
+</script>
+</body>
+</html>
